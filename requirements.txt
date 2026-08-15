@@ -1,0 +1,9 @@
+sounddevice
+faster-whisper
+numpy
+flask
+bs4
+ddgs
+
+google-adk
+litellm

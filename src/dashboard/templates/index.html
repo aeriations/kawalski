@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kawalski</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+    }
+
+    #root {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    canvas#bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    .feed {
+      position: relative;
+      z-index: 2;
+      flex: 1;
+      width: 100%;
+      overflow-y: auto;
+      padding: 28px 0 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .feed::-webkit-scrollbar { width: 3px; }
+    .feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+    .empty {
+      margin-top: 80px;
+      text-align: center;
+      color: rgba(255,255,255,0.18);
+      font-size: 13px;
+    }
+    .empty i { font-size: 30px; display: block; margin-bottom: 10px; }
+
+    .card {
+      width: 580px;
+      border-radius: 12px;
+      padding: 13px 16px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(30,30,30,0.55);
+      border: 1px solid rgba(255,255,255,0.08);
+      transition: border-color 0.15s;
+      animation: dropin 0.18s ease;
+    }
+    @keyframes dropin {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card:hover { border-color: rgba(255,255,255,0.15); }
+    .card.search { border-left: 2px solid #569cd6; }
+    .card.tool   { border-left: 2px solid #4ec9b0; }
+    .card.textop { border-left: 2px solid #c586c0; }
+    .card.error  { border-left: 2px solid #f14c4c; }
+    .card.manual { border-left: 2px solid #dcdcaa; }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 4px;
+    }
+    .card-icon { font-size: 15px; width: 20px; text-align: center; }
+    .ci-search { color: #569cd6; }
+    .ci-tool   { color: #4ec9b0; }
+    .ci-textop { color: #c586c0; }
+    .ci-error  { color: #f14c4c; }
+    .ci-manual { color: #dcdcaa; }
+
+    .card-label { font-size: 12.5px; font-weight: 500; color: #d4d4d4; }
+    .card-time  { margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.28); font-variant-numeric: tabular-nums; }
+
+    .pill { font-size: 10px; padding: 1px 7px; border-radius: 20px; border: 1px solid; }
+    .pill.ok  { color: #4ec9b0; border-color: #4ec9b0; }
+    .pill.err { color: #f14c4c; border-color: #f14c4c; }
+
+    .cmd-group {
+      width: 580px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .card-body {
+      font-size: 12.5px;
+      color: #9cdcfe;
+      padding-left: 29px;
+      line-height: 1.5;
+    }
+
+    .card-detail {
+      display: none;
+      font-size: 12px;
+      color: rgba(255,255,255,0.42);
+      line-height: 1.65;
+      margin-top: 8px;
+      margin-left: 29px;
+      padding: 8px 10px;
+      border-left: 2px solid rgba(255,255,255,0.1);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .card-detail.open { display: block; }
+
+    .card-toggle {
+      font-size: 11px;
+      color: #569cd6;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      margin: 5px 0 0 29px;
+      display: block;
+    }
+    .card-toggle:hover { text-decoration: underline; }
+
+    .bubble-wrap { width: 580px; display: flex; justify-content: flex-end; }
+    .bubble {
+      background: rgba(86,156,214,0.12);
+      border: 1px solid rgba(86,156,214,0.22);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 16px 16px 4px 16px;
+      padding: 7px 13px;
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.55);
+      max-width: 80%;
+    }
+
+    .bottom {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 16px;
+      pointer-events: none;
+    }
+
+    .status-pill {
+      pointer-events: all;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(25,25,25,0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      user-select: none;
+    }
+    .sp-dot.muted  { background: #f14c4c; }
+    .sp-label.muted { color: #f14c4c; }
+
+    .sp-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      flex-shrink: 0;
+    }
+    .sp-dot.listening    { background: #4ec9b0; animation: pulse 2s infinite; }
+    .sp-dot.recording    { background: #f14c4c; animation: pulse 0.7s infinite; }
+    .sp-dot.transcribing { background: #dcdcaa; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    .sp-label { color: rgba(255,255,255,0.55); }
+    .sp-label.listening    { color: #4ec9b0; }
+    .sp-label.recording    { color: #f14c4c; }
+    .sp-label.transcribing { color: #dcdcaa; }
+    .sp-label.thinking     { color: #dcdcaa; }
+
+    .sp-div { width: 1px; height: 10px; background: rgba(255,255,255,0.1); }
+
+    .chat-row {
+      pointer-events: all;
+      padding: 10px 20px 14px;
+    }
+
+    .mic-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(25,25,25,0.65);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+      color: #4ec9b0;
+      font-size: 18px;
+    }
+    .mic-btn:hover { border-color: rgba(255,255,255,0.2); }
+    .mic-btn.active {
+      background: rgba(78,201,176,0.15);
+      border-color: rgba(78,201,176,0.4);
+      color: #4ec9b0;
+    }
+    .mic-btn.muted {
+      background: rgba(241,76,76,0.15);
+      border-color: rgba(241,76,76,0.4);
+      color: #f14c4c;
+    }
+
+    .chat-outer {
+      pointer-events: all;
+      width: 580px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(25,25,25,0.65);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 26px;
+      padding: 10px 14px;
+      transition: border-color 0.15s;
+    }
+    .chat-outer:focus-within { border-color: rgba(86,156,214,0.45); }
+
+    .chat-icon { color: rgba(255,255,255,0.22); font-size: 16px; flex-shrink: 0; }
+
+    .chat-input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: #d4d4d4;
+      font-size: 13.5px;
+      font-family: inherit;
+    }
+    .chat-input::placeholder { color: rgba(255,255,255,0.22); }
+
+    .send-btn {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: rgba(86,156,214,0.75);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .send-btn:hover { background: #569cd6; }
+    .send-btn:disabled { opacity: 0.35; cursor: default; }
+    .send-btn i { color: #fff; font-size: 13px; }
+  </style>
+</head>
+<body>
+<div id="root">
+  <canvas id="bg"></canvas>
+
+  <div class="feed" id="feed">
+    <div class="empty" id="empty">
+      <i class="ti ti-radio" aria-hidden="true"></i>
+      Waiting for commands...
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="status-pill">
+      <span class="sp-dot listening" id="sp-dot"></span>
+      <span class="sp-label listening" id="sp-label">Listening</span>
+      <span class="sp-div"></span>
+      <span id="sp-model">qwen2.5:7b</span>
+      <span class="sp-div"></span>
+      <span>whisper small</span>
+      <span class="sp-div"></span>
+      <span id="clock"></span>
+    </div>
+
+    <div class="chat-row" style="display:flex;justify-content:center;align-items:center;gap:10px;">
+      <div class="chat-outer">
+        <i class="ti ti-terminal chat-icon" aria-hidden="true"></i>
+        <input class="chat-input" id="chat-input" placeholder="Type a command manually..." autocomplete="off" spellcheck="false">
+        <button class="send-btn" id="send-btn" aria-label="Send">
+          <i class="ti ti-arrow-up" aria-hidden="true"></i>
+        </button>
+      </div>
+      <button class="mic-btn active" id="mic-btn" onclick="toggleMic()" aria-label="Toggle microphone">
+        <i class="ti ti-microphone" id="mic-icon"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── canvas background ──
+const canvas = document.getElementById('bg');
+  const ctx    = canvas.getContext('2d');
+  const root   = document.getElementById('root');
+
+  function resize() {
+    canvas.width  = root.offsetWidth  || window.innerWidth;
+    canvas.height = root.offsetHeight || window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const N_BARS     =  60;
+  const historySize = 200;
+  const energyRing  = Array(historySize).fill(0);
+  let ringHead      = 0;
+  let scrollPos     = 0;
+  let liveEnergy    = 0;
+  let smoothedEnergy = 0;
+  let useRealEnergy  = false;
+
+  function pushEnergy(e) {
+    useRealEnergy = true;
+    liveEnergy = e;
+    energyRing[ringHead % historySize] = e;
+    ringHead++;
+  }
+
+  function drawBackground() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#1e1e1e';
+    ctx.fillRect(0, 0, W, H);
+
+    const barW = W / N_BARS;
+
+    for (let i = 0; i < N_BARS; i++) {
+      const sampleIdx = ringHead - N_BARS + i + Math.floor(scrollPos);
+      const frac      = scrollPos % 1;
+      const v0 = energyRing[((sampleIdx)     % historySize + historySize) % historySize];
+      const v1 = energyRing[((sampleIdx + 1) % historySize + historySize) % historySize];
+      const v  = v0 + (v1 - v0) * frac;
+
+      const h     = Math.max(2, v * H * 8);
+      const x     = i * barW;
+      const alpha = Math.min(0.3, v * 3);
+      const grad  = ctx.createLinearGradient(x, H, x, H - h);
+      grad.addColorStop(0, `rgba(78,201,176,${alpha})`);
+      grad.addColorStop(1, `rgba(86,156,214,${alpha * 0.25})`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(x + 1, H - h, barW - 2, h, 2);
+      ctx.fill();
+    }
+
+    const glowE = Math.min(smoothedEnergy * 50, 1);
+    if (glowE > 0.01) {
+      const glow = ctx.createRadialGradient(W / 2, H, 0, W / 2, H, W * 0.55);
+      glow.addColorStop(0, `rgba(78,201,176,${glowE * 0.06})`);
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function drawLoop() {
+    smoothedEnergy += (liveEnergy - smoothedEnergy) * 0.06;
+    scrollPos += 0.3;
+    drawBackground();
+    requestAnimationFrame(drawLoop);
+  }
+  drawLoop();
+
+  let simT = 0, simTarget = 0, simE = 0;
+
+  function simTick() {
+    if (!useRealEnergy) {
+      simT++;
+      if (simT % 90 === 0 && Math.random() < 0.35) {
+        simTarget = 0.02 + Math.random() * 0.04;
+        setTimeout(() => { simTarget = 0; }, 1000 + Math.random() * 1500);
+      }
+      const base = 0.003 + Math.abs(Math.sin(simT * 0.05)) * 0.004;
+      simE += (base + simTarget - simE) * 0.1;
+      liveEnergy = simE;
+      energyRing[ringHead % historySize] = simE;
+      ringHead++;
+    }
+    setTimeout(simTick, 50);
+  }
+  simTick();
+
+  // ── clock ──
+  const clockEl = document.getElementById('clock');
+  function tick() {
+    const n = new Date();
+    clockEl.textContent =
+      String(n.getHours()).padStart(2, '0') + ':' +
+      String(n.getMinutes()).padStart(2, '0');
+  }
+  tick();
+  setInterval(tick, 10000);
+
+  // ── status pill ──
+  const spDot   = document.getElementById('sp-dot');
+  const spLabel = document.getElementById('sp-label');
+
+  function setStatus(s) {
+    const labels = { listening: 'Listening', recording: 'Recording', transcribing: 'Transcribing...', thinking: "Thinking...", muted: 'Muted' };
+    spDot.className   = 'sp-dot ' + s;
+    spLabel.className = 'sp-label ' + s;
+    spLabel.textContent = labels[s] || s;
+  }
+
+  // ── tool metadata ──
+  const TOOL_META = {
+    web_search:          { icon: 'ti-search',         cls: 'search', ci: 'ci-search', label: 'Web search' },
+    open_app:            { icon: 'ti-app-window',      cls: 'tool',   ci: 'ci-tool',   label: 'Opened app' },
+    adjust_volume:       { icon: 'ti-volume',          cls: 'tool',   ci: 'ci-tool',   label: 'Volume' },
+    set_volume_percent:  { icon: 'ti-volume',          cls: 'tool',   ci: 'ci-tool',   label: 'Volume' },
+    mute:                { icon: 'ti-volume-off',      cls: 'tool',   ci: 'ci-tool',   label: 'Muted' },
+    press_key:           { icon: 'ti-keyboard',        cls: 'tool',   ci: 'ci-tool',   label: 'Key press' },
+    press_combo:         { icon: 'ti-keyboard',        cls: 'tool',   ci: 'ci-tool',   label: 'Key combo' },
+    type_text:           { icon: 'ti-cursor-text',     cls: 'tool',   ci: 'ci-tool',   label: 'Typed text' },
+    focus_window:        { icon: 'ti-layout',          cls: 'tool',   ci: 'ci-tool',   label: 'Focused window' },
+    wait:                { icon: 'ti-clock-pause',     cls: 'tool',   ci: 'ci-tool',   label: 'Waited' },
+    remember:            { icon: 'ti-bookmark',        cls: 'tool',   ci: 'ci-tool',   label: 'Remembered' },
+    forget_memory:       { icon: 'ti-bookmark-off',    cls: 'tool',   ci: 'ci-tool',   label: 'Forgot' },
+    search_memory:       { icon: 'ti-database-search', cls: 'tool',   ci: 'ci-tool',   label: 'Memory search' },
+    fetch_webpage:       { icon: 'ti-world',           cls: 'search', ci: 'ci-search', label: 'Fetched page' },
+    formalize:           { icon: 'ti-text-spellcheck', cls: 'textop', ci: 'ci-textop', label: 'Formalized text' },
+    summarize:           { icon: 'ti-notes',           cls: 'textop', ci: 'ci-textop', label: 'Summarized text' },
+    call_on_discord:     { icon: 'ti-brand-discord',   cls: 'error',  ci: 'ci-error',  label: 'Discord call' },
+    manual_input:        { icon: 'ti-terminal',        cls: 'manual', ci: 'ci-manual', label: 'Manual command' },
+    error:               { icon: 'ti-alert-circle',    cls: 'error',  ci: 'ci-error',  label: 'Error' },
+    reply:               { icon: 'ti-message', cls: 'tool', ci: 'ci-tool', label: 'Kawalski' },
+
+  };
+
+  function getMeta(tool) {
+    return TOOL_META[tool] || { icon: 'ti-bolt', cls: 'tool', ci: 'ci-tool', label: tool };
+  }
+
+  // ── feed ──
+  const feed  = document.getElementById('feed');
+  const empty = document.getElementById('empty');
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function nowTime() {
+    const n = new Date();
+    return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
+  }
+  // ── feed grouping ──
+  let currentGroup = null;
+
+  function startGroup(text) {
+    if (empty.parentNode) empty.remove();
+
+    currentGroup = document.createElement('div');
+    currentGroup.className = 'cmd-group';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble-wrap';
+    bubble.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+
+    currentGroup.appendChild(bubble);
+    feed.insertBefore(currentGroup, feed.firstChild);
+  }
+
+  function addEvent(ev) {
+    if (empty.parentNode) empty.remove();
+
+    const meta = getMeta(ev.tool);
+    const ok   = ev.success !== false;
+    const did  = 'det-' + ev.id;
+    const hasDetail = ev.detail && ev.detail.trim().length > 0;
+    const time = ev.time || nowTime();
+
+    const card = document.createElement('div');
+    card.className = 'card ' + meta.cls;
+    card.innerHTML = `
+      <div class="card-top">
+        <i class="ti ${meta.icon} card-icon ${meta.ci}" aria-hidden="true"></i>
+        <span class="card-label">${esc(meta.label)}</span>
+        <span class="pill ${ok ? 'ok' : 'err'}">${ok ? 'done' : 'failed'}</span>
+        <span class="card-time">${esc(time)}</span>
+      </div>
+      <div class="card-body">${esc(ev.result)}</div>
+      ${hasDetail ? `
+        <div class="card-detail" id="${did}">${esc(ev.detail)}</div>
+        <button class="card-toggle" onclick="toggleDetail('${did}', this)">Show detail</button>
+      ` : ''}
+    `;
+
+    // append into current group if one exists, otherwise insert at top
+    if (currentGroup) {
+      currentGroup.appendChild(card);
+    } else {
+      if (empty.parentNode) empty.remove();
+      feed.insertBefore(card, feed.firstChild);
+    }
+
+    // reply card closes the group
+    if (ev.tool === 'reply') {
+      currentGroup = null;
+    }
+
+    const cards = feed.querySelectorAll('.card');
+    if (cards.length > 60) cards[cards.length - 1].remove();
+  }
+
+  function addTranscript(text) {
+    startGroup(text);
+  }
+  function toggleDetail(id, btn) {
+    const el   = document.getElementById(id);
+    const open = el.classList.toggle('open');
+    btn.textContent = open ? 'Hide detail' : 'Show detail';
+  }
+
+  let micEnabled = true;
+
+  async function toggleMic() {
+    micEnabled = !micEnabled;
+    const btn  = document.getElementById('mic-btn');
+    const icon = document.getElementById('mic-icon');
+
+    if (micEnabled) {
+      btn.className  = 'mic-btn active';
+      icon.className = 'ti ti-microphone';
+    } else {
+      btn.className  = 'mic-btn muted';
+      icon.className = 'ti ti-microphone-off';
+    }
+
+    try {
+      await fetch('/mic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: micEnabled }),
+      });
+    } catch (e) {
+      console.warn('mic toggle failed:', e);
+    }
+  }
+
+  // ── manual chat ──
+  const chatInput = document.getElementById('chat-input');
+  const sendBtn   = document.getElementById('send-btn');
+
+  sendBtn.addEventListener('click', sendManual);
+  chatInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendManual(); });
+
+  async function sendManual() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = '';
+    sendBtn.disabled = true;
+    startGroup(text);
+
+    try {
+      const resp = await fetch('/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await resp.json();
+      if (data.result) {
+        addEvent({
+          id: Date.now(), tool: 'manual_input',
+          result: data.result, detail: '', success: true,
+        });
+      }
+    } catch (e) {
+      addEvent({
+        id: Date.now(), tool: 'error',
+        result: 'Could not send: ' + e.message, detail: '', success: false,
+      });
+    } finally {
+      sendBtn.disabled = false;
+      chatInput.focus();
+    }
+  }
+
+  // ── SSE ──
+  let sseActive = false;
+
+  function connect() {
+    const es = new EventSource('/stream');
+
+    es.onopen = () => { sseActive = true; };
+
+    es.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if      (msg.type === 'event')      addEvent(msg);
+        else if (msg.type === 'status')     setStatus(msg.status);
+        else if (msg.type === 'energy')     pushEnergy(msg.energy);
+        else if (msg.type === 'transcript') addTranscript(msg.text);
+      } catch (err) {
+        console.warn('SSE parse error', err);
+      }
+    };
+
+    es.onerror = () => {
+      sseActive = false;
+      es.close();
+      setTimeout(connect, 3000);
+    };
+  }
+
+  connect();
+</script>
+</body>
+</html>
