@@ -60,9 +60,10 @@ KEYS = {
     # numbers
     **{str(n): ord(str(n)) for n in range(10)},
     # special keys
-    "backtick":  0x0060,
+    "backtick":  0xC0,
     "space":     0x20,
     "enter":     0x0D,
+    "single_quote": 0xDE,
     "escape":    0x1B,
     "tab":       0x09,
     "backspace": 0x08,
@@ -174,4 +175,7 @@ def type_text(text: str, interval: float=0.0) -> str:
     return f"Typed: {text}"
 
 if __name__ == "__main__":
-    print(press_key("next_track"))
+    time.sleep(2)
+    print(press_key("single_quote"))
+    time.sleep(2)
+    print(press_combo("ctrl", "single_quote"))

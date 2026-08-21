@@ -7,3 +7,5 @@ ddgs
 
 google-adk
 litellm
+
+python-dotenv

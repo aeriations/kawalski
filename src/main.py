@@ -1,24 +1,42 @@
+from pydantic_core.core_schema import is_instance_schema
+
 import stt
 import threading
 
 import context as context
 
 import dashboard.server as dashboard
+import disc
 
 from agent import _runner, SESSION_ID, USER_ID
 from google.genai.types import Content, Part
 
 import asyncio
 
-def handle_command(prompt: str, silent: bool = False, save_history: bool= True):
+_agent_lock = threading.Lock()
+
+def get_response_result(response):
+    if isinstance(response, dict):
+        value = response.get("result", response) if "result" in response else response
+        return value
+    return str(response)
+
+def handle_command(prompt: str, silent: bool = False, save_history: bool= True, additional_info: str= ""):
     stt.set_status("thinking")
 
     # add memory later ( add on to prompt maybe? )
+    parts = [Part(text=prompt)]
+    if additional_info:
+        context_block = (
+            f"[CONTEXT INFO / BACKGROUND DATA]\n"
+            f"{additional_info}\n"
+            f"[END CONTEXT INFO]"
+        )
+        parts.append(Part(text=context_block))
+
     message = Content(
         role="user",
-        parts=[
-            Part(text=prompt)
-        ]
+        parts=parts
     )
 
     final_reply = ""
@@ -29,16 +47,38 @@ def handle_command(prompt: str, silent: bool = False, save_history: bool= True):
             tool_responses = event.get_function_responses()
             if tool_responses:
                 for tr in tool_responses:
+                    print(get_response_result(tr.response))
                     dashboard.push_event(
                         tr.name,
-                        tr.response['result'],
+                        get_response_result(tr.response),
                         f"Command: {prompt}",
                     )
 
             if event.is_final_response():
                 final_reply = event.content.parts[0].text
 
-    asyncio.run(run())
+    def worker_thread_target():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(run())
+        finally:
+            try:
+                pending = asyncio.all_tasks(loop)
+                if pending:
+                    for task in pending:
+                        task.cancel()
+
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            except Exception:
+                pass
+
+            loop.close()
+
+    with _agent_lock:
+        thread = threading.Thread(target=worker_thread_target)
+        thread.start()
+        thread.join()
 
     # add to conversation history
 
@@ -68,6 +108,9 @@ def on_transcript(transcript: str):
 def main():
 
     dashboard.start(open_browser=True, port=8000)
+
+    disc.client.handle_command = handle_command
+    asyncio.run(disc.main())
 
     print("voice assistant starting...")
     print("you can speak now!")

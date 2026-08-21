@@ -5,8 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kawalski</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    .md-content {
+      line-height: 1.6;
+      color: #d4d4d4;
+    }
+    .md-content p {
+      margin-bottom: 6px;
+    }
+    .md-content p:last-child {
+      margin-bottom: 0;
+    }
+    .md-content strong {
+      color: #d4d4d4;
+      font-weight: 600;
+    }
+    .md-content em {
+      color: #9cdcfe;
+      font-style: italic;
+    }
+    .md-content code {
+      background: rgba(255,255,255,0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 12px;
+      color: #ce9178;
+    }
+    .md-content pre {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 8px 0;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .md-content pre code {
+      background: none;
+      padding: 0;
+      color: #9cdcfe;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .md-content ul, .md-content ol {
+      padding-left: 20px;
+      margin: 6px 0;
+    }
+    .md-content li {
+      margin-bottom: 4px;
+    }
+    .md-content blockquote {
+      border-left: 3px solid #569cd6;
+      padding-left: 10px;
+      color: rgba(255,255,255,0.6);
+      margin: 6px 0;
+    }
+
+    .md-link { color: #569cd6; text-decoration: none; }
+    .md-link:hover { text-decoration: underline; }
 
     html, body {
       height: 100%;
@@ -46,6 +105,7 @@
       flex-direction: column;
       align-items: center;
       gap: 10px;
+      justify-content: flex-end;
     }
     .feed::-webkit-scrollbar { width: 3px; }
     .feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
@@ -322,6 +382,24 @@
 </div>
 
 <script>
+  // configure marked
+    marked.setOptions({
+      breaks: true,   // single newlines become <br>
+      gfm: true,      // github flavoured markdown
+    });
+
+    // override link renderer to open in new tab
+    const renderer = {
+      link({ href, title, text }) {
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="md-link">${text}</a>`;
+      }
+    };
+
+    marked.use({ renderer });
+
+    function md(text) {
+      return marked.parse(String(text));
+    }
 // ── canvas background ──
 const canvas = document.getElementById('bg');
   const ctx    = canvas.getContext('2d');
@@ -495,7 +573,9 @@ const canvas = document.getElementById('bg');
     bubble.innerHTML = `<div class="bubble">${esc(text)}</div>`;
 
     currentGroup.appendChild(bubble);
-    feed.insertBefore(currentGroup, feed.firstChild);
+    feed.appendChild(currentGroup);
+
+    feed.scrollTop = feed.scrollHeight;
   }
 
   function addEvent(ev) {
@@ -516,9 +596,13 @@ const canvas = document.getElementById('bg');
         <span class="pill ${ok ? 'ok' : 'err'}">${ok ? 'done' : 'failed'}</span>
         <span class="card-time">${esc(time)}</span>
       </div>
-      <div class="card-body">${esc(ev.result)}</div>
+      <div class="card-body">
+        <div class="md-content">${md(ev.result)}</div>
+      </div>
       ${hasDetail ? `
-        <div class="card-detail" id="${did}">${esc(ev.detail)}</div>
+        <div class="card-detail" id="${did}">
+          <div class="md-content">${md(ev.detail)}</div>
+        </div>
         <button class="card-toggle" onclick="toggleDetail('${did}', this)">Show detail</button>
       ` : ''}
     `;
@@ -528,7 +612,7 @@ const canvas = document.getElementById('bg');
       currentGroup.appendChild(card);
     } else {
       if (empty.parentNode) empty.remove();
-      feed.insertBefore(card, feed.firstChild);
+      feed.appendChild(card);
     }
 
     // reply card closes the group

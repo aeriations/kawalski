@@ -26,24 +26,20 @@ def web_search(query: str, max_results: int = 5):
                 max_results=max_results
             )
 
-            for result in search_results:
-                results.append({
-                    "title": result.get("title", ""),
-                    "url": result.get("href", ""),
-                    "description": result.get("body", "")
-                })
+            lines = [f"Search results for '{query}':\n"]
+            for idx, r in enumerate(search_results):
+                title = r.get('title', 'No Title')
+                url = r.get('href') or r.get('link') or 'N/A'
+                body = r.get('body') or r.get('snippet') or ''
 
-        return {
-            "success": True,
-            "query": query,
-            "results": results
-        }
+                lines.append(f"{idx+1}. {title}")
+                lines.append(f"   URL: {url}")
+                lines.append(f"   {body}\n")
+
+        return '\n'.join(lines)
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return f"Websearch not successful: {e}"
 
 def fetch_webpage(url: str):
     try:
@@ -61,16 +57,8 @@ def fetch_webpage(url: str):
         text = soup.get_text(separator=" ", strip=True)
         text = text[:20000]
 
-        return {
-            "success": True,
-            "url": url,
-            "title": soup.title.string if soup.title else "",
-            "content": text
-        }
+        return f"Succesfully fetched webpage: {url}"
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return f"Webpage fetch not successful: {e}"
 
